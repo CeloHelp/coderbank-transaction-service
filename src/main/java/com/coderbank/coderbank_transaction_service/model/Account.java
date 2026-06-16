@@ -1,6 +1,7 @@
 package com.coderbank.coderbank_transaction_service.model;
 
 
+import com.coderbank.coderbank_transaction_service.dto.request.AccountRequestDTO;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,4 +36,23 @@ public class Account {
     @Column(nullable = false, updatable = false)
     @Getter
     private LocalDateTime createdAt;
+
+    // Construtor
+
+    public Account() {}
+
+    public Account(String customerId, BigDecimal balance, CurrencyType currency) {
+        this.customerId = customerId;
+        this.balance = balance;
+        this.currency = currency;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public static Account createAccount(AccountRequestDTO accountRequestDTO) {
+        return new Account(
+                accountRequestDTO.customerId(),
+                accountRequestDTO.amount(),
+                accountRequestDTO.currency()
+        );
+    }
 }
