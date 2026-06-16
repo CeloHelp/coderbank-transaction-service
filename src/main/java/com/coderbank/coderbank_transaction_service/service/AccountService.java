@@ -17,8 +17,11 @@ public class AccountService {
         Account account = Account.createAccount(accountRequestDTO);
         accountRepository.save(account);
 
-        return new AccountResponseDTO(
-                account.getId(), account.getCustomerId(), account.getBalance(), account.getCurrency(), account.getCreatedAt());
+        return new AccountResponseDTO(account.getId(),
+                 account.getCustomerId(),
+                 account.getBalance(),
+                 account.getCurrency(),
+                 account.getCreatedAt());
 
 
     }
