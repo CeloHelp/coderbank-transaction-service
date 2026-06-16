@@ -45,14 +45,13 @@ public class Account {
         this.customerId = customerId;
         this.balance = balance;
         this.currency = currency;
-        this.createdAt = LocalDateTime.now();
     }
 
-    public static Account createAccount(AccountRequestDTO accountRequestDTO) {
+    public static Account createAccount(String customerId, BigDecimal balance, CurrencyType currency) {
         return new Account(
-                accountRequestDTO.customerId(),
-                accountRequestDTO.amount(),
-                accountRequestDTO.currency()
+                customerId,
+                balance,
+                currency
         );
     }
 }

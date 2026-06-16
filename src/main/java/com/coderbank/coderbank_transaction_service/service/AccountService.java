@@ -14,13 +14,17 @@ public class AccountService {
 
     public AccountResponseDTO  createAccount( AccountRequestDTO accountRequestDTO) {
 
-        Account account = Account.createAccount(accountRequestDTO);
+        Account account = Account.createAccount(
+                accountRequestDTO.customerId(),
+                accountRequestDTO.amount(),
+                accountRequestDTO.currency()
+        );
+
         accountRepository.save(account);
 
         return new AccountResponseDTO(account.getId(),
                  account.getCustomerId(),
                  account.getBalance(),
-                 account.getCurrency(),
                  account.getCreatedAt());
 
 

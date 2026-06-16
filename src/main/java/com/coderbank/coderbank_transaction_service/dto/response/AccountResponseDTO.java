@@ -13,7 +13,6 @@ public record AccountResponseDTO (
 
         BigDecimal balance,
 
-        CurrencyType currency,
 
         LocalDateTime createdAt
 ){
