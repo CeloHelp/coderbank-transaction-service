@@ -11,7 +11,7 @@ BEGIN
     IF EXISTS (
         SELECT 1
         FROM accounts
-        GROUP BY customer_id
+        GROUP BY customer_id::uuid
         HAVING COUNT(*) > 1
     ) THEN
         RAISE EXCEPTION 'Migration aborted: duplicate accounts exist for a customer';

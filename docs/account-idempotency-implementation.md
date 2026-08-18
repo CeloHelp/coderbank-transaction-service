@@ -51,6 +51,7 @@ Idempotency-Replayed: true
 - Outra chave tentando criar um tipo existente retorna HTTP 409 e código `ACCOUNT_TYPE_ALREADY_EXISTS`.
 - Uma poupança sem conta corrente retorna HTTP 409 e código `CHECKING_ACCOUNT_REQUIRED`.
 - Header ausente, UUID malformado, campos ausentes e enums inválidos retornam HTTP 400 e código `VALIDATION_ERROR`.
+- Propriedades JSON desconhecidas retornam HTTP 400 e código `VALIDATION_ERROR`.
 
 ## Banco de dados
 
@@ -64,7 +65,7 @@ A migration realiza as seguintes operações:
 
 1. Valida os valores legados de `accounts.customer_id` usando o parser nativo `pg_input_is_valid(..., 'uuid')` do PostgreSQL.
 2. Interrompe explicitamente a execução quando existem IDs inválidos.
-3. Interrompe explicitamente a execução quando existem contas legadas duplicadas por cliente.
+3. Interrompe explicitamente a execução quando existem contas legadas duplicadas pela representação UUID canônica do cliente.
 4. Converte `customer_id` de `VARCHAR` para `UUID`.
 5. Adiciona `account_type` e classifica contas legadas como `CHECKING`.
 6. Adiciona checks para tipo de conta, moeda e saldo não negativo.
@@ -74,6 +75,8 @@ A migration realiza as seguintes operações:
 10. Adiciona a FK nomeada `fk_account_creation_account`.
 
 A configuração duplicada de conexão do Flyway foi removida de `application.yml`. O Flyway agora utiliza o mesmo datasource da aplicação, inclusive quando o datasource é substituído pelo Testcontainers.
+
+A migration V1 publicada foi restaurada byte a byte a partir de `origin/main`. As regras de `.gitattributes` preservam LF para Java, SQL, YAML e Markdown, CRLF para scripts `.cmd` e a regra LF já existente para o Maven wrapper.
 
 ## Modelo e DTOs
 
@@ -89,6 +92,8 @@ A entidade `Account` foi alterada para:
 - definir `BigDecimal.ZERO` internamente.
 
 O request deixou de aceitar `amount` e `description`.
+
+O Jackson foi configurado explicitamente para rejeitar propriedades desconhecidas. O `customer_service` ainda precisa ser atualizado de forma coordenada antes da habilitação em ambiente compartilhado, pois o contrato antigo envia `amount` e `description` e não envia `accountType`.
 
 O response agora contém:
 
@@ -147,10 +152,10 @@ Mensagens internas e stack traces do PostgreSQL não são retornados pela API.
 
 ## Concorrência
 
-Foram cobertos dois cenários concorrentes com requisições iniciadas simultaneamente:
+Foram cobertos dois cenários concorrentes com coordenação determinística e timeouts explícitos:
 
-- Mesma chave e mesmo payload: as duas respostas são HTTP 201, uma criação e um replay, com o mesmo `accountId` e uma única conta persistida.
-- Chaves diferentes para o mesmo cliente e tipo: uma resposta é HTTP 201, a outra HTTP 409, e somente uma conta e uma reserva permanecem persistidas.
+- Mesma chave e mesmo payload: a transação proprietária mantém a reserva aberta enquanto a segunda alcança e aguarda o `INSERT ... ON CONFLICT`; após o commit, a segunda prossegue como replay do mesmo `accountId`.
+- Chaves diferentes para o mesmo cliente e tipo: uma barreira garante que ambas ultrapassem a verificação preventiva antes do insert; uma cria a conta, a outra atinge `uq_accounts_customer_type`, traduz o conflito após rollback e não mantém sua reserva.
 
 A verificação preventiva melhora a resposta comum, enquanto `uq_accounts_customer_type` permanece como garantia definitiva contra corrida.
 
@@ -183,6 +188,12 @@ A verificação preventiva melhora a resposta comum, enquanto `uq_accounts_custo
 - header ausente;
 - payload incompleto;
 - enum inválido;
+- UUID malformado no header e no `customerId`;
+- moeda desconhecida;
+- body ausente e `Content-Type` incorreto;
+- reutilização da chave alterando somente tipo ou moeda;
+- propriedade JSON desconhecida;
+- estado idempotente confirmado sem `account_id`, com erro interno seguro;
 - concorrência com a mesma chave;
 - concorrência com chaves diferentes.
 
@@ -192,7 +203,8 @@ A verificação preventiva melhora a resposta comum, enquanto `uq_accounts_custo
 
 - migração de legado válido, incluindo UUIDv7;
 - rejeição de UUID inválido;
-- rejeição de contas legadas duplicadas.
+- rejeição de contas legadas duplicadas;
+- rejeição de grafias distintas do mesmo UUID, com rollback completo e schema mantido na V1.
 
 A imagem de testes foi fixada em `postgres:16`, substituindo `postgres:latest`.
 
@@ -207,6 +219,8 @@ A imagem de testes foi fixada em `postgres:16`, substituindo `postgres:latest`.
 7. O estado inesperado `account_id IS NULL` foi definido como erro interno seguro.
 8. A configuração do Flyway foi unificada com o datasource principal.
 9. Foram adicionados testes específicos de migração e concorrência além dos testes funcionais.
+10. A V1 foi restaurada byte a byte e os line endings dos arquivos da branch foram normalizados.
+11. Propriedades JSON desconhecidas passaram a ser rejeitadas explicitamente.
 
 ## Itens que permanecem fora do escopo
 
@@ -215,3 +229,7 @@ A imagem de testes foi fixada em `postgres:16`, substituindo `postgres:latest`.
 - Outbox, saga ou estado `ACCOUNT_PENDING`.
 - Regras de movimentação específicas da conta `SAVINGS`.
 - Lock por cliente para coordenar uma abertura simultânea de `CHECKING` e `SAVINGS`.
+
+## Backlog de status da conta
+
+A regra atual considera qualquer conta `CHECKING` existente apta a permitir a abertura de `SAVINGS`. Quando bloqueio ou encerramento forem introduzidos, a validação deverá exigir explicitamente `accountType = CHECKING` e `status = ACTIVE`. `AccountStatus` não faz parte desta entrega.

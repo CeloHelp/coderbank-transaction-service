@@ -2,6 +2,9 @@ server:
   port: 8082
 
 spring:
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   datasource:
     # Corrigido para apontar para o banco correto de transações
     url: jdbc:postgresql://localhost:5434/transaction_db
@@ -29,4 +32,3 @@ logging:
     console: >
       {"ts":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","level":"%p",
        "logger":"%c{1}","msg":"%m","thread":"%t"}%n
-

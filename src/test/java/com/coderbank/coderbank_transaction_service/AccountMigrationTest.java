@@ -65,6 +65,27 @@ class AccountMigrationTest {
                 .hasStackTraceContaining("duplicate accounts exist for a customer");
     }
 
+    @Test
+    void rejectsCanonicalDuplicateLegacyAccountsAndRollsBackMigration() throws Exception {
+        String schema = createSchema();
+        migrateToV1(schema);
+        insertLegacyAccount(schema, "abcdef12-3456-7890-abcd-ef1234567890");
+        insertLegacyAccount(schema, "ABCDEF12-3456-7890-ABCD-EF1234567890");
+
+        assertThatThrownBy(() -> migrateToLatest(schema))
+                .isInstanceOf(FlywayException.class)
+                .hasStackTraceContaining("duplicate accounts exist for a customer");
+
+        try (Connection connection = POSTGRES.createConnection("");
+             Statement statement = connection.createStatement()) {
+            assertThat(columnType(statement, schema, "accounts", "customer_id"))
+                    .isEqualTo("character varying");
+            assertThat(columnExists(statement, schema, "accounts", "account_type")).isFalse();
+            assertThat(tableExists(statement, schema, "account_creation_requests")).isFalse();
+            assertThat(appliedMigrationVersion(statement, schema)).isEqualTo("1");
+        }
+    }
+
     private String createSchema() throws Exception {
         String schema = "migration_" + UUID.randomUUID().toString().replace("-", "");
         try (Connection connection = POSTGRES.createConnection("");
@@ -103,6 +124,49 @@ class AccountMigrationTest {
             statement.setObject(1, UUID.randomUUID());
             statement.setString(2, customerId);
             statement.executeUpdate();
+        }
+    }
+
+    private String columnType(Statement statement, String schema, String table, String column) throws Exception {
+        try (ResultSet result = statement.executeQuery("""
+                SELECT data_type
+                FROM information_schema.columns
+                WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'
+                """.formatted(schema, table, column))) {
+            assertThat(result.next()).isTrue();
+            return result.getString("data_type");
+        }
+    }
+
+    private boolean columnExists(Statement statement, String schema, String table, String column) throws Exception {
+        try (ResultSet result = statement.executeQuery("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'
+                )
+                """.formatted(schema, table, column))) {
+            result.next();
+            return result.getBoolean(1);
+        }
+    }
+
+    private boolean tableExists(Statement statement, String schema, String table) throws Exception {
+        try (ResultSet result = statement.executeQuery("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = '%s' AND table_name = '%s'
+                )
+                """.formatted(schema, table))) {
+            result.next();
+            return result.getBoolean(1);
+        }
+    }
+
+    private String appliedMigrationVersion(Statement statement, String schema) throws Exception {
+        try (ResultSet result = statement.executeQuery(
+                "SELECT MAX(version) FROM " + schema + ".flyway_schema_history WHERE success")) {
+            result.next();
+            return result.getString(1);
         }
     }
 }
