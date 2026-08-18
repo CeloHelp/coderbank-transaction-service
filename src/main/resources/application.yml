@@ -32,3 +32,4 @@ logging:
     console: >
       {"ts":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","level":"%p",
        "logger":"%c{1}","msg":"%m","thread":"%t"}%n
+
