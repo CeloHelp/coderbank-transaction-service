@@ -16,9 +16,6 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    url: jdbc:postgresql://127.0.0.1:5434/transaction_db
-    user: postgres
-    password: root
 
 management:
   endpoints.web.exposure.include: health,info

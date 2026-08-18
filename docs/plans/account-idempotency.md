@@ -53,7 +53,7 @@ Content-Type: application/json
 
 1. Integrar `task-1-receive-connection` na `main`.
 2. Atualizar a `main` local.
-3. Criar `task-2-account-idempotency` a partir da `main` atualizada.
+3. Criar `task-2-apply-idempotency` a partir da `main` atualizada.
 4. Preservar ou resolver antes da troca de branch a alteracao local existente em `src/main/resources/application.yml`.
 
 ### 2. Criar `AccountType`

@@ -1,10 +1,15 @@
 package com.coderbank.coderbank_transaction_service.model;
 
 
-import com.coderbank.coderbank_transaction_service.dto.request.AccountRequestDTO;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.Getter;
-import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -17,19 +22,24 @@ public class Account {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Getter
-   private UUID id;
+    private UUID id;
 
-
+    @Column(name = "customer_id", nullable = false)
     @Getter
-   private String customerId;;
-
-    @Getter
-    @Setter
-   private BigDecimal balance;
+    private UUID customerId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false, length = 20)
     @Getter
-    @Setter
+    private AccountType accountType;
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    @Getter
+    private BigDecimal balance;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Getter
     private CurrencyType currency;
 
     @CreationTimestamp
@@ -37,20 +47,21 @@ public class Account {
     @Getter
     private LocalDateTime createdAt;
 
-    // Construtor
+    protected Account() {
+    }
 
-    public Account() {}
-
-    public Account(String customerId, BigDecimal balance, CurrencyType currency) {
+    private Account(UUID customerId, AccountType accountType, BigDecimal balance, CurrencyType currency) {
         this.customerId = customerId;
+        this.accountType = accountType;
         this.balance = balance;
         this.currency = currency;
     }
 
-    public static Account createAccount(String customerId, BigDecimal balance, CurrencyType currency) {
+    public static Account open(UUID customerId, AccountType accountType, CurrencyType currency) {
         return new Account(
                 customerId,
-                balance,
+                accountType,
+                BigDecimal.ZERO,
                 currency
         );
     }
